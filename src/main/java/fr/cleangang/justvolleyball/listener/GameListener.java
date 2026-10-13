@@ -27,6 +27,7 @@ import org.bukkit.event.inventory.ClickType;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryDragEvent;
 import org.bukkit.event.player.PlayerArmorStandManipulateEvent;
+import org.bukkit.event.player.PlayerAttemptPickupItemEvent;
 import org.bukkit.event.player.PlayerChangedWorldEvent;
 import org.bukkit.event.player.PlayerDropItemEvent;
 import org.bukkit.event.player.PlayerInteractAtEntityEvent;
@@ -43,6 +44,8 @@ import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 
+import java.util.HashMap;
+import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -54,6 +57,7 @@ public final class GameListener implements Listener {
     private static final String ADMIN = "justvolleyball.admin";
 
     private final JustVolleyballMC plugin;
+    private final Map<UUID, Long> leaveClicks = new HashMap<>();
 
     public GameListener(JustVolleyballMC plugin) {
         this.plugin = plugin;
@@ -94,6 +98,13 @@ public final class GameListener implements Listener {
                 return;
             }
             e.setCancelled(true);
+            if (plugin.menuItems().isLeave(item)) {
+                if (g != null && e.getHand() == EquipmentSlot.HAND
+                        && (act == Action.RIGHT_CLICK_AIR || act == Action.RIGHT_CLICK_BLOCK)) {
+                    confirmLeave(p, g);
+                }
+                return;
+            }
             if (g == null && e.getHand() == EquipmentSlot.HAND) {
                 if (plugin.menuItems().isAdmin(item)) {
                     AdminGui.open(plugin, p);
@@ -118,6 +129,19 @@ public final class GameListener implements Listener {
         }
         e.setCancelled(true);
         g.onInteract(p, left);
+    }
+
+    /** Double clic droit (3 s) sur l'objet "Quitter" pour éviter de partir par accident en servant. */
+    private void confirmLeave(Player p, Game g) {
+        long now = System.currentTimeMillis();
+        Long last = leaveClicks.get(p.getUniqueId());
+        if (last != null && now - last < 3000) {
+            leaveClicks.remove(p.getUniqueId());
+            g.leave(p.getUniqueId(), true);
+        } else {
+            leaveClicks.put(p.getUniqueId(), now);
+            Msg.bar(p, "<red>Reclique dans les 3 secondes pour quitter la partie.</red>");
+        }
     }
 
     private void setPoint(Player p, int index, Location block) {
@@ -190,19 +214,36 @@ public final class GameListener implements Listener {
     @EventHandler
     public void onJoin(PlayerJoinEvent e) {
         // nettoyage après un crash : on retire toute main de volley oubliée
-        HandItem.removeAll(e.getPlayer(), plugin.handKey());
-        giveMenuItemsLater(e.getPlayer(), 10L);
+        Player joined = e.getPlayer();
+        if (gameOf(joined) == null && plugin.inventories().has(joined.getUniqueId())) {
+            plugin.inventories().restore(joined);
+            Msg.send(joined, "Ton inventaire t'a été rendu (partie de volley interrompue).");
+        }
+        HandItem.removeAll(joined, plugin.handKey());
+        plugin.menuItems().removeLeave(joined);
+        giveMenuItemsLater(joined, 10L);
     }
 
     @EventHandler
     public void onRespawn(PlayerRespawnEvent e) {
-        giveMenuItemsLater(e.getPlayer(), 2L);
+        Player p = e.getPlayer();
+        plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
+            if (!p.isOnline()) {
+                return;
+            }
+            Game g = gameOf(p);
+            if (g != null) {
+                g.giveKit(p);
+            } else {
+                plugin.menuItems().give(p);
+            }
+        }, 2L);
     }
 
     @EventHandler
     public void onDeath(PlayerDeathEvent e) {
         // les objets de menu ne tombent jamais au sol
-        e.getDrops().removeIf(i -> plugin.menuItems().isMenuItem(i));
+        e.getDrops().removeIf(this::lockedItem);
     }
 
     /** Léger délai : laisse d'abord passer les plugins de hub qui vident/remplissent l'inventaire à la connexion. */
@@ -364,6 +405,10 @@ public final class GameListener implements Listener {
             }
             return;
         }
+        if (gameOf(p) != null) {
+            e.setCancelled(true); // inventaire de jeu figé
+            return;
+        }
         if (lockedItem(e.getCurrentItem()) || lockedItem(e.getCursor())
                 || (e.getClick() == ClickType.SWAP_OFFHAND && lockedItem(p.getInventory().getItemInOffHand()))
                 || (e.getClick() == ClickType.NUMBER_KEY && e.getHotbarButton() >= 0
@@ -388,7 +433,14 @@ public final class GameListener implements Listener {
 
     @EventHandler
     public void onDrop(PlayerDropItemEvent e) {
-        if (lockedItem(e.getItemDrop().getItemStack())) {
+        if (gameOf(e.getPlayer()) != null || lockedItem(e.getItemDrop().getItemStack())) {
+            e.setCancelled(true);
+        }
+    }
+
+    @EventHandler(ignoreCancelled = true)
+    public void onPickup(PlayerAttemptPickupItemEvent e) {
+        if (gameOf(e.getPlayer()) != null) {
             e.setCancelled(true);
         }
     }

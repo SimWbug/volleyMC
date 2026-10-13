@@ -4,6 +4,7 @@ import fr.cleangang.justvolleyball.admin.WandManager;
 import fr.cleangang.justvolleyball.arena.ArenaManager;
 import fr.cleangang.justvolleyball.command.JvbCommand;
 import fr.cleangang.justvolleyball.config.Settings;
+import fr.cleangang.justvolleyball.data.InventoryStore;
 import fr.cleangang.justvolleyball.data.PlayerDataManager;
 import fr.cleangang.justvolleyball.data.StatsManager;
 import fr.cleangang.justvolleyball.game.Ball;
@@ -37,6 +38,7 @@ public final class JustVolleyballMC extends JavaPlugin {
     private WandManager wand;
     private StatsManager stats;
     private PlayerDataManager playerData;
+    private InventoryStore inventories;
     private NamespacedKey ballKey;
     private NamespacedKey handKey;
     private MenuItems menuItems;
@@ -51,6 +53,7 @@ public final class JustVolleyballMC extends JavaPlugin {
         arenas = new ArenaManager(this);
         stats = new StatsManager(this);
         playerData = new PlayerDataManager(this);
+        inventories = new InventoryStore(this);
         wand = new WandManager(this);
         games = new GameManager(this);
         menuItems = new MenuItems(this);
@@ -137,6 +140,10 @@ public final class JustVolleyballMC extends JavaPlugin {
 
     public StatsManager stats() {
         return stats;
+    }
+
+    public InventoryStore inventories() {
+        return inventories;
     }
 
     public PlayerDataManager playerData() {

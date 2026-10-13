@@ -26,11 +26,13 @@ public final class MenuItems {
     private final JustVolleyballMC plugin;
     private final NamespacedKey ballKey;
     private final NamespacedKey adminKey;
+    private final NamespacedKey leaveKey;
 
     public MenuItems(JustVolleyballMC plugin) {
         this.plugin = plugin;
         this.ballKey = new NamespacedKey(plugin, "menu_ball");
         this.adminKey = new NamespacedKey(plugin, "menu_admin");
+        this.leaveKey = new NamespacedKey(plugin, "menu_leave");
     }
 
     public ItemStack ball() {
@@ -47,6 +49,15 @@ public final class MenuItems {
                 "<gray>Clic droit : ouvrir le menu admin",
                 "<gray>Faux, création et gestion des arènes");
         tag(item, adminKey);
+        return item;
+    }
+
+    /** Objet de jeu (slot 9 pendant une partie) : double clic droit pour quitter. */
+    public ItemStack leave() {
+        ItemStack item = Items.of(Material.RED_DYE, "<red><bold>Quitter la partie",
+                "<gray>Clic droit deux fois de suite pour quitter",
+                "<gray>Ton inventaire te sera rendu");
+        tag(item, leaveKey);
         return item;
     }
 
@@ -71,15 +82,23 @@ public final class MenuItems {
         return has(item, adminKey);
     }
 
+    public boolean isLeave(ItemStack item) {
+        return has(item, leaveKey);
+    }
+
     public boolean isMenuItem(ItemStack item) {
-        return isBall(item) || isAdmin(item);
+        return isBall(item) || isAdmin(item) || isLeave(item);
+    }
+
+    public void removeLeave(Player p) {
+        removeWhere(p, this::isLeave);
     }
 
     /** Donne (ou remet) les objets de hotbar selon la config et les permissions du joueur. */
     public void give(Player p) {
         Settings s = plugin.settings();
-        if (!s.hotbarEnabled) {
-            return;
+        if (!s.hotbarEnabled || plugin.games().gameOf(p.getUniqueId()) != null) {
+            return; // pas de ballon/menu admin dans l'inventaire de jeu
         }
         place(p, ball(), this::isBall, s.hotbarBallSlot);
         if (p.hasPermission(ADMIN_PERMISSION)) {

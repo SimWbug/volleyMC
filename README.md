@@ -43,6 +43,11 @@ Les admins (`justvolleyball.admin`) reçoivent en plus un **bloc de commande « 
 Les deux objets sont verrouillés (ni lâchables, ni déplaçables, ni en main secondaire, ni perdus à la mort). Pendant une partie, le clic sur le ballon sert au jeu (passe/smash) ; le menu reste accessible avec `/jvb menu`.
 Réglages dans `config.yml` > `hotbar_items` (`enabled`, `ball_slot`, `admin_slot`). Un slot déjà occupé n'est jamais écrasé : le plugin prend le premier slot libre. Mets `enabled: false` si un plugin de hub gère déjà la hotbar.
 
+## Inventaire pendant une partie
+
+À l'entrée dans une arène, l'inventaire du joueur (objets, armure, main secondaire) est **sauvegardé sur disque** (`saved-inventories/<uuid>.yml`) puis **vidé** ; si la sauvegarde échoue, le joueur n'entre pas en partie. Il ne garde que la main de volley (main secondaire) et un objet « Quitter la partie » (slot 9, double clic droit pour confirmer). Pendant la partie l'inventaire est figé (pas de déplacement, drop ni ramassage).
+À la sortie (quitter, kick, arrêt de la partie, changement de monde, arrêt du serveur) l'inventaire est rendu. Si le serveur plante ou que le joueur se déconnecte en pleine partie, il le récupère à sa prochaine connexion.
+
 ## Commandes
 
 Joueurs : `/jvb menu|join|leave|list|stats|top|replay|cosmetics|skin|trail|help`

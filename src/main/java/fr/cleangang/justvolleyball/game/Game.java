@@ -11,11 +11,13 @@ import org.bukkit.Bukkit;
 import org.bukkit.FluidCollisionMode;
 import org.bukkit.GameMode;
 import org.bukkit.Location;
+import org.bukkit.Material;
 import org.bukkit.Particle;
 import org.bukkit.Sound;
 import org.bukkit.World;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.PlayerInventory;
 import org.bukkit.util.RayTraceResult;
 import org.bukkit.util.Vector;
 
@@ -204,6 +206,11 @@ public final class Game {
             side = ca <= cb ? TeamSide.A : TeamSide.B;
         }
 
+        // l'inventaire est mis de côté sur disque AVANT d'être vidé ; si l'écriture échoue, on n'entre pas en partie
+        if (!plugin.inventories().save(p)) {
+            return "Impossible de sauvegarder ton inventaire : partie annulée (rien n'a été touché).";
+        }
+
         Participant part = new Participant(p.getUniqueId(), p.getName(), side);
         part.bench = bench;
         part.previousLocation = p.getLocation().clone();
@@ -212,7 +219,7 @@ public final class Game {
         plugin.games().register(p.getUniqueId(), this);
 
         p.setGameMode(GameMode.ADVENTURE);
-        HandItem.giveIfHandsEmpty(p, plugin.handKey());
+        giveKit(p);
         ensureBar();
         p.showBossBar(bar);
 
@@ -235,6 +242,21 @@ public final class Game {
         return null;
     }
 
+    /**
+     * Inventaire de jeu : tout est vidé (l'original est sur disque), il ne reste que l'objet "Quitter"
+     * (slot 9) et la main de volley en main secondaire. Aussi utilisé après une mort en partie.
+     */
+    public void giveKit(Player p) {
+        PlayerInventory inv = p.getInventory();
+        inv.clear();
+        inv.setArmorContents(new ItemStack[4]);
+        inv.setItemInOffHand(new ItemStack(Material.AIR));
+        inv.setHeldItemSlot(0);
+        inv.setItem(8, plugin.menuItems().leave());
+        HandItem.giveIfHandsEmpty(p, plugin.handKey());
+        p.updateInventory();
+    }
+
     public void leave(UUID id, boolean restore) {
         Participant part = parts.remove(id);
         if (part == null) {
@@ -246,13 +268,18 @@ public final class Game {
             if (bar != null) {
                 pl.hideBossBar(bar);
             }
-            HandItem.removeAll(pl, plugin.handKey());
+            // l'inventaire est toujours rendu, même si la position n'est pas restaurée (changement de monde, kick...)
+            if (!plugin.inventories().restore(pl)) {
+                HandItem.removeAll(pl, plugin.handKey());
+                plugin.menuItems().removeLeave(pl);
+            }
             if (part.previousMode != null) {
                 pl.setGameMode(part.previousMode);
             }
             if (restore && part.previousLocation != null && part.previousLocation.getWorld() != null) {
                 pl.teleport(part.previousLocation);
             }
+            plugin.menuItems().give(pl);
             if (restore && !closing) {
                 Msg.send(pl, "Tu as quitté l'arène <white>" + Msg.esc(arena.name()) + "</white>.");
             }
