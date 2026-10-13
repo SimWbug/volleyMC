@@ -3,7 +3,10 @@ package fr.cleangang.justvolleyball.listener;
 import fr.cleangang.justvolleyball.JustVolleyballMC;
 import fr.cleangang.justvolleyball.arena.Arena;
 import fr.cleangang.justvolleyball.game.Game;
+import fr.cleangang.justvolleyball.gui.AdminGui;
 import fr.cleangang.justvolleyball.gui.CosmeticsGui;
+import fr.cleangang.justvolleyball.gui.MainGui;
+import fr.cleangang.justvolleyball.gui.Menu;
 import fr.cleangang.justvolleyball.util.HandItem;
 import fr.cleangang.justvolleyball.util.Msg;
 import io.papermc.paper.event.player.AsyncChatEvent;
@@ -19,6 +22,7 @@ import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.block.BlockPlaceEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.FoodLevelChangeEvent;
+import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.inventory.ClickType;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryDragEvent;
@@ -27,9 +31,11 @@ import org.bukkit.event.player.PlayerChangedWorldEvent;
 import org.bukkit.event.player.PlayerDropItemEvent;
 import org.bukkit.event.player.PlayerInteractAtEntityEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
+import org.bukkit.event.player.PlayerItemHeldEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
+import org.bukkit.event.player.PlayerRespawnEvent;
 import org.bukkit.event.player.PlayerSwapHandItemsEvent;
 import org.bukkit.event.player.PlayerTeleportEvent;
 import org.bukkit.event.world.EntitiesLoadEvent;
@@ -80,6 +86,27 @@ public final class GameListener implements Listener {
         }
 
         Game g = gameOf(p);
+
+        // ballon / outils admin de la hotbar : ouvrent un menu (hors partie, en partie le clic sert au jeu)
+        if (item != null && plugin.menuItems().isMenuItem(item)) {
+            Action act = e.getAction();
+            if (act == Action.PHYSICAL) {
+                return;
+            }
+            e.setCancelled(true);
+            if (g == null && e.getHand() == EquipmentSlot.HAND) {
+                if (plugin.menuItems().isAdmin(item)) {
+                    AdminGui.open(plugin, p);
+                } else {
+                    MainGui.open(plugin, p);
+                }
+            } else if (g != null) {
+                boolean l = act == Action.LEFT_CLICK_AIR || act == Action.LEFT_CLICK_BLOCK;
+                g.onInteract(p, l);
+            }
+            return;
+        }
+
         if (g == null) {
             return;
         }
@@ -115,7 +142,26 @@ public final class GameListener implements Listener {
         Game g = gameOf(e.getPlayer());
         if (g != null && g.onDash(e.getPlayer())) {
             e.setCancelled(true);
+            return;
         }
+        // les objets de menu ne passent jamais en main secondaire
+        if (plugin.menuItems().isMenuItem(e.getMainHandItem()) || plugin.menuItems().isMenuItem(e.getOffHandItem())) {
+            e.setCancelled(true);
+        }
+    }
+
+    /** En partie, si les deux mains sont vides le client n'envoie plus de clic droit dans le vide : on remet la main de volley. */
+    @EventHandler
+    public void onHeld(PlayerItemHeldEvent e) {
+        Player p = e.getPlayer();
+        if (gameOf(p) == null) {
+            return;
+        }
+        plugin.getServer().getScheduler().runTask(plugin, () -> {
+            if (p.isOnline() && gameOf(p) != null) {
+                HandItem.giveIfHandsEmpty(p, plugin.handKey());
+            }
+        });
     }
 
     @EventHandler
@@ -145,6 +191,27 @@ public final class GameListener implements Listener {
     public void onJoin(PlayerJoinEvent e) {
         // nettoyage après un crash : on retire toute main de volley oubliée
         HandItem.removeAll(e.getPlayer(), plugin.handKey());
+        giveMenuItemsLater(e.getPlayer(), 10L);
+    }
+
+    @EventHandler
+    public void onRespawn(PlayerRespawnEvent e) {
+        giveMenuItemsLater(e.getPlayer(), 2L);
+    }
+
+    @EventHandler
+    public void onDeath(PlayerDeathEvent e) {
+        // les objets de menu ne tombent jamais au sol
+        e.getDrops().removeIf(i -> plugin.menuItems().isMenuItem(i));
+    }
+
+    /** Léger délai : laisse d'abord passer les plugins de hub qui vident/remplissent l'inventaire à la connexion. */
+    private void giveMenuItemsLater(Player p, long delay) {
+        plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
+            if (p.isOnline()) {
+                plugin.menuItems().give(p);
+            }
+        }, delay);
     }
 
     @EventHandler
@@ -283,6 +350,13 @@ public final class GameListener implements Listener {
             return;
         }
         Inventory top = e.getInventory();
+        if (top.getHolder() instanceof Menu menu) {
+            e.setCancelled(true);
+            if (e.getClickedInventory() != null && e.getClickedInventory().equals(top)) {
+                menu.handle(p, e);
+            }
+            return;
+        }
         if (top.getHolder() instanceof CosmeticsGui.Holder holder) {
             e.setCancelled(true);
             if (e.getClickedInventory() != null && e.getClickedInventory().equals(top)) {
@@ -290,25 +364,38 @@ public final class GameListener implements Listener {
             }
             return;
         }
-        if (HandItem.isMarker(e.getCurrentItem(), plugin.handKey())
-                || HandItem.isMarker(e.getCursor(), plugin.handKey())
-                || (e.getClick() == ClickType.SWAP_OFFHAND
-                && HandItem.isMarker(p.getInventory().getItemInOffHand(), plugin.handKey()))) {
+        if (lockedItem(e.getCurrentItem()) || lockedItem(e.getCursor())
+                || (e.getClick() == ClickType.SWAP_OFFHAND && lockedItem(p.getInventory().getItemInOffHand()))
+                || (e.getClick() == ClickType.NUMBER_KEY && e.getHotbarButton() >= 0
+                && lockedItem(p.getInventory().getItem(e.getHotbarButton())))) {
             e.setCancelled(true);
         }
     }
 
+    /** Main de volley et objets de menu : jamais déplaçables ni lâchables. */
+    private boolean lockedItem(ItemStack item) {
+        return HandItem.isMarker(item, plugin.handKey()) || plugin.menuItems().isMenuItem(item);
+    }
+
     @EventHandler
     public void onInventoryDrag(InventoryDragEvent e) {
-        if (e.getInventory().getHolder() instanceof CosmeticsGui.Holder
-                || HandItem.isMarker(e.getOldCursor(), plugin.handKey())) {
+        if (e.getInventory().getHolder() instanceof Menu
+                || e.getInventory().getHolder() instanceof CosmeticsGui.Holder
+                || lockedItem(e.getOldCursor())) {
             e.setCancelled(true);
         }
     }
 
     @EventHandler
     public void onDrop(PlayerDropItemEvent e) {
-        if (HandItem.isMarker(e.getItemDrop().getItemStack(), plugin.handKey())) {
+        if (lockedItem(e.getItemDrop().getItemStack())) {
+            e.setCancelled(true);
+        }
+    }
+
+    @EventHandler(ignoreCancelled = true)
+    public void onPlaceMenuItem(BlockPlaceEvent e) {
+        if (lockedItem(e.getItemInHand())) {
             e.setCancelled(true);
         }
     }

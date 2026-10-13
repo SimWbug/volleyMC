@@ -96,6 +96,16 @@ cosmetics_and_customization:
     save_last_point_replay: true
     replay_duration_seconds: 5
 
+# Objets de hotbar : le ballon (menu joueur) pour tout le monde, et les
+# outils admin (menu admin) pour la permission justvolleyball.admin.
+# Donnes a la connexion et au respawn. Un slot deja occupe par un autre
+# objet n'est jamais ecrase : le plugin prend alors le premier slot libre.
+# Mets enabled: false si un autre plugin gere deja la hotbar (hub).
+hotbar_items:
+  enabled: true
+  ball_slot: 8     # 0 a 8 (8 = tout a droite)
+  admin_slot: 7
+
 # ------------------------------------------------------------
 #  Skins de balle.
 #  "material" = bloc/objet utilise si "texture" est vide.

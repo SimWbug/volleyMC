@@ -1,13 +1,16 @@
 package fr.cleangang.justvolleyball.command;
 
 import fr.cleangang.justvolleyball.JustVolleyballMC;
+import fr.cleangang.justvolleyball.admin.ArenaService;
 import fr.cleangang.justvolleyball.arena.Arena;
 import fr.cleangang.justvolleyball.arena.CourtBuilder;
 import fr.cleangang.justvolleyball.config.Settings;
 import fr.cleangang.justvolleyball.data.StatsManager;
 import fr.cleangang.justvolleyball.game.Game;
 import fr.cleangang.justvolleyball.game.TeamSide;
+import fr.cleangang.justvolleyball.gui.AdminGui;
 import fr.cleangang.justvolleyball.gui.CosmeticsGui;
+import fr.cleangang.justvolleyball.gui.MainGui;
 import fr.cleangang.justvolleyball.util.Msg;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
@@ -30,9 +33,9 @@ public final class JvbCommand implements TabExecutor {
 
     private static final String ADMIN = "justvolleyball.admin";
     private static final Pattern NAME = Pattern.compile("[A-Za-z0-9_-]{2,24}");
-    private static final List<String> PLAYER_SUBS = List.of("help", "join", "leave", "list", "stats", "top", "replay",
+    private static final List<String> PLAYER_SUBS = List.of("help", "menu", "join", "leave", "list", "stats", "top", "replay",
             "cosmetics", "skin", "trail");
-    private static final List<String> ADMIN_SUBS = List.of("wand", "create", "build", "delete", "info", "setlobby",
+    private static final List<String> ADMIN_SUBS = List.of("admin", "wand", "create", "build", "delete", "info", "setlobby",
             "setmode", "settype", "forcestart", "forcestop", "tp", "kick", "reload");
 
     private final JustVolleyballMC plugin;
@@ -50,6 +53,7 @@ public final class JvbCommand implements TabExecutor {
         String sub = args[0].toLowerCase(Locale.ROOT);
         switch (sub) {
             case "help", "aide" -> help(sender);
+            case "menu" -> menu(sender);
             case "join", "rejoindre" -> join(sender, args);
             case "leave", "quitter" -> leave(sender);
             case "list", "liste" -> list(sender);
@@ -74,6 +78,7 @@ public final class JvbCommand implements TabExecutor {
 
     private void help(CommandSender s) {
         Msg.raw(s, "<gradient:#ffb347:#ffe066><bold>JustVolleyballMC</bold></gradient>");
+        Msg.raw(s, "<yellow>/jvb menu</yellow> <gray>- menu du volley (ou clic droit sur le ballon de ta hotbar)");
         Msg.raw(s, "<yellow>/jvb join <arène> [rouge|bleu]</yellow> <gray>- rejoindre une partie");
         Msg.raw(s, "<yellow>/jvb leave</yellow> <gray>- quitter la partie");
         Msg.raw(s, "<yellow>/jvb list</yellow> <gray>- liste des arènes");
@@ -83,9 +88,17 @@ public final class JvbCommand implements TabExecutor {
         Msg.raw(s, "<gray>Jeu : clic droit = passe/service (maintenir = charger) · clic gauche en l'air = smash · "
                 + "Shift+saut près du filet = block · F = dash (Shift+F = glissade)</gray>");
         if (s.hasPermission(ADMIN)) {
-            Msg.raw(s, "<gold>Admin :</gold> <gray>wand, create, build, delete, info, setlobby, setmode, settype, "
+            Msg.raw(s, "<gold>Admin :</gold> <gray>admin (menu), wand, create, build, delete, info, setlobby, setmode, settype, "
                     + "forcestart, forcestop, tp, kick, reload</gray>");
         }
+    }
+
+    private void menu(CommandSender sender) {
+        if (!(sender instanceof Player p)) {
+            Msg.send(sender, "<red>Commande réservée aux joueurs.</red>");
+            return;
+        }
+        MainGui.open(plugin, p);
     }
 
     private void join(CommandSender sender, String[] args) {
@@ -260,6 +273,11 @@ public final class JvbCommand implements TabExecutor {
             return;
         }
         switch (sub) {
+            case "admin" -> {
+                if (sender instanceof Player ap) {
+                    AdminGui.open(plugin, ap);
+                }
+            }
             case "wand", "faux" -> wand(sender);
             case "create", "creer" -> create(sender, args);
             case "build" -> build(sender, args);
@@ -332,16 +350,7 @@ public final class JvbCommand implements TabExecutor {
             Msg.send(p, "<red>Usage :</red> /jvb create <nom> <1v1|2v2|3v3|4v4|5v5|6v6> [ranked|open]");
             return;
         }
-        String name = args[1];
-        if (!NAME.matcher(name).matches()) {
-            Msg.send(p, "<red>Nom invalide</red> (2 à 24 caractères : lettres, chiffres, - et _).");
-            return;
-        }
-        if (plugin.arenas().exists(name)) {
-            Msg.send(p, "<red>Une arène porte déjà ce nom.</red>");
-            return;
-        }
-        Integer size = parseType(args[2]);
+        Integer size = ArenaService.parseType(args[2]);
         if (size == null) {
             Msg.send(p, "<red>Type invalide.</red> <gray>1v1, 2v2, 3v3, 4v4, 5v5 ou 6v6</gray>");
             return;
@@ -351,63 +360,10 @@ public final class JvbCommand implements TabExecutor {
             Msg.send(p, "<red>Mode invalide.</red> <gray>ranked ou open</gray>");
             return;
         }
-        Location[] sel = plugin.wand().get(p.getUniqueId());
-        if (sel == null || sel[0] == null || sel[1] == null) {
-            Msg.send(p, "<red>Sélection incomplète.</red> <gray>Utilise /jvb wand puis clique 2 coins avec la faux.</gray>");
-            return;
+        String error = ArenaService.create(plugin, p, args[1], size, mode);
+        if (error != null) {
+            Msg.send(p, "<red>" + Msg.esc(error) + "</red>");
         }
-        World world = sel[0].getWorld();
-        if (world == null || !world.equals(sel[1].getWorld())) {
-            Msg.send(p, "<red>Les deux points doivent être dans le même monde.</red>");
-            return;
-        }
-
-        int minX = Math.min(sel[0].getBlockX(), sel[1].getBlockX());
-        int maxX = Math.max(sel[0].getBlockX(), sel[1].getBlockX());
-        int minZ = Math.min(sel[0].getBlockZ(), sel[1].getBlockZ());
-        int maxZ = Math.max(sel[0].getBlockZ(), sel[1].getBlockZ());
-        int floorY = sel[0].getBlockY();
-
-        int dx = maxX - minX + 1;
-        int dz = maxZ - minZ + 1;
-        boolean alongX = dx >= dz;
-        String note = "";
-        int length = alongX ? dx : dz;
-        if (length % 2 == 0) {
-            if (alongX) {
-                maxX--;
-            } else {
-                maxZ--;
-            }
-            length--;
-            note = " <gray>(longueur ajustée à " + length + " pour un filet centré)</gray>";
-        }
-        int width = alongX ? (maxZ - minZ + 1) : (maxX - minX + 1);
-        int minWidth = Math.max(5, size + 3);
-        int minLength = Math.max(9, 2 * (size + 3) + 1);
-        if (width < minWidth || length < minLength) {
-            Msg.send(p, "<red>Zone trop petite pour du " + size + "v" + size + " :</red> il faut au moins "
-                    + minLength + "x" + minWidth + " blocs (tu as " + length + "x" + width + ").");
-            return;
-        }
-        if (width * length > 1500) {
-            Msg.send(p, "<red>Zone trop grande</red> (maximum 1500 blocs de surface).");
-            return;
-        }
-
-        Arena arena = new Arena(name, world.getName(), minX, maxX, minZ, maxZ, floorY, size, mode, alongX);
-        Arena clash = plugin.arenas().overlapping(arena);
-        if (clash != null) {
-            Msg.send(p, "<red>Cette zone touche l'arène</red> <white>" + Msg.esc(clash.name()) + "</white>.");
-            return;
-        }
-        plugin.arenas().add(arena);
-        plugin.wand().clear(p.getUniqueId());
-        Msg.send(p, "Création de l'arène <white>" + Msg.esc(name) + "</white> (" + size + "v" + size + ", " + mode.label()
-                + ", " + length + "x" + width + ")" + note + " : construction du terrain...");
-        CourtBuilder.build(plugin, arena, () -> Msg.send(p, "<green>Terrain construit !</green> <gray>Camp rouge d'un côté, "
-                + "bleu de l'autre. /jvb setlobby " + Msg.esc(name) + " pour fixer le lobby, /jvb join " + Msg.esc(name)
-                + " pour tester.</gray>"));
     }
 
     private void build(CommandSender sender, String[] args) {

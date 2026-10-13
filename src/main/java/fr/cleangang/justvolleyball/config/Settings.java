@@ -78,6 +78,10 @@ public final class Settings {
     // cosmétiques
     public boolean skinsEnabled, trailsEnabled, replayEnabled;
     public int replaySeconds;
+
+    // objets de hotbar
+    public boolean hotbarEnabled;
+    public int hotbarBallSlot, hotbarAdminSlot;
     public final Map<String, BallSkin> skins = new LinkedHashMap<>();
     public final Map<String, TrailDef> trails = new LinkedHashMap<>();
 
@@ -148,6 +152,10 @@ public final class Settings {
         trailsEnabled = c.getBoolean("cosmetics_and_customization.player_trail_particles", true);
         replayEnabled = c.getBoolean("cosmetics_and_customization.replay_system.save_last_point_replay", true);
         replaySeconds = Math.max(1, c.getInt("cosmetics_and_customization.replay_system.replay_duration_seconds", 5));
+
+        hotbarEnabled = c.getBoolean("hotbar_items.enabled", true);
+        hotbarBallSlot = c.getInt("hotbar_items.ball_slot", 8);
+        hotbarAdminSlot = c.getInt("hotbar_items.admin_slot", 7);
 
         skins.clear();
         ConfigurationSection sk = c.getConfigurationSection("ball_skins");

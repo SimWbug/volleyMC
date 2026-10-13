@@ -33,16 +33,26 @@ Tailles minimales : 1v1 = 9x5, 2v2 = 11x5, 3v3 = 13x6, 4v4 = 15x7, 5v5 = 17x8, 6
 
 Règles : 3 touches max par camp, pas de double touche (si l'équipe a plus d'un joueur), balle au sol dans un camp = point pour l'autre, balle dehors = faute du dernier toucheur. Classé : 25 points, 2 d'écart. Open gym : jeu libre jusqu'à 24 joueurs (les surnuméraires sont sur le banc), chat limité à 30 blocs.
 
+## Ballon et menus (hotbar)
+
+Comme pour les autres plugins du serveur, un **ballon de volley** est donné dans la hotbar (slot 9 par défaut) à la connexion et au respawn.
+Clic droit dessus = menu du volley : liste des arènes (clic = rejoindre, Shift+clic gauche/droit = camp rouge/bleu), mes stats, top classé, cosmétiques, revoir le dernier point et quitter la partie quand on est en jeu. `/jvb menu` ouvre le même menu.
+
+Les admins (`justvolleyball.admin`) reçoivent en plus un **bloc de commande « Outils admin »** (slot 8 par défaut) : menu admin avec la faux, la création de terrain (choix du format, clic gauche = classé, clic droit = open gym, nom automatique `terrain-N`), puis par arène : téléportation, lobby, reconstruction, mode, format, forcer le lancement, arrêter la partie, supprimer (Shift+clic). `/jvb admin` ouvre le même menu.
+
+Les deux objets sont verrouillés (ni lâchables, ni déplaçables, ni en main secondaire, ni perdus à la mort). Pendant une partie, le clic sur le ballon sert au jeu (passe/smash) ; le menu reste accessible avec `/jvb menu`.
+Réglages dans `config.yml` > `hotbar_items` (`enabled`, `ball_slot`, `admin_slot`). Un slot déjà occupé n'est jamais écrasé : le plugin prend le premier slot libre. Mets `enabled: false` si un plugin de hub gère déjà la hotbar.
+
 ## Commandes
 
-Joueurs : `/jvb join|leave|list|stats|top|replay|cosmetics|skin|trail|help`
-Admin (`justvolleyball.admin`) : `wand, create, build, delete [clear], info, setlobby, setmode, settype, forcestart, forcestop, tp, kick, reload`
+Joueurs : `/jvb menu|join|leave|list|stats|top|replay|cosmetics|skin|trail|help`
+Admin (`justvolleyball.admin`) : `admin, wand, create, build, delete [clear], info, setlobby, setmode, settype, forcestart, forcestop, tp, kick, reload`
 
 ## Compatibilité avec les autres plugins
 
 - Une seule commande `/jvb`, permissions `justvolleyball.*`, données dans des fichiers séparés (`arenas.yml`, `stats.yml`, `players.yml`).
 - Aucun scoreboard ni team touché : l'affichage passe par une bossbar. Les collisions entre joueurs sont celles de Minecraft (aucune team modifiée).
-- Aucune modification d'inventaire, sauf une « main de volley » en main secondaire quand les deux mains du joueur sont vides (nécessaire pour que le client envoie le clic droit dans le vide). Elle est retirée à la sortie ou à la connexion suivante.
+- Inventaire : seulement le ballon (et les outils admin) de la hotbar, sans jamais écraser un slot occupé, et une « main de volley » en main secondaire quand les deux mains du joueur sont vides (nécessaire pour que le client envoie le clic droit dans le vide). Elle est retirée à la sortie ou à la connexion suivante.
 - Les événements ne concernent que : la faux d'un admin, les joueurs inscrits dans une partie, et nos propres entités (armor stands taguées `jvb_ball` / `jvb_ghost`, non persistantes).
 - Le mode de jeu, la position et le gamemode du joueur sont restaurés à la sortie. Les terrains sont protégés (casse/pose) sauf pour un admin en créatif.
 

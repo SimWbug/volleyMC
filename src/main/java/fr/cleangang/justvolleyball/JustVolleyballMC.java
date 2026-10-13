@@ -10,10 +10,12 @@ import fr.cleangang.justvolleyball.game.Ball;
 import fr.cleangang.justvolleyball.game.GameManager;
 import fr.cleangang.justvolleyball.game.ReplayPlayer;
 import fr.cleangang.justvolleyball.listener.GameListener;
+import fr.cleangang.justvolleyball.util.MenuItems;
 import org.bukkit.NamespacedKey;
 import org.bukkit.World;
 import org.bukkit.command.PluginCommand;
 import org.bukkit.entity.ArmorStand;
+import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
 
 /**
@@ -37,6 +39,7 @@ public final class JustVolleyballMC extends JavaPlugin {
     private PlayerDataManager playerData;
     private NamespacedKey ballKey;
     private NamespacedKey handKey;
+    private MenuItems menuItems;
 
     @Override
     public void onEnable() {
@@ -50,6 +53,7 @@ public final class JustVolleyballMC extends JavaPlugin {
         playerData = new PlayerDataManager(this);
         wand = new WandManager(this);
         games = new GameManager(this);
+        menuItems = new MenuItems(this);
 
         getServer().getPluginManager().registerEvents(new GameListener(this), this);
 
@@ -63,6 +67,10 @@ public final class JustVolleyballMC extends JavaPlugin {
         cleanupStaleEntities();
         games.start();
         wand.startOutlineTask();
+        // joueurs déjà connectés (reload) : on leur remet leurs objets
+        for (Player online : getServer().getOnlinePlayers()) {
+            menuItems.give(online);
+        }
         getLogger().info("JustVolleyballMC activé (" + arenas.all().size() + " arène(s)).");
     }
 
@@ -70,6 +78,11 @@ public final class JustVolleyballMC extends JavaPlugin {
     public void onDisable() {
         if (games != null) {
             games.shutdown();
+        }
+        if (menuItems != null) {
+            for (Player online : getServer().getOnlinePlayers()) {
+                menuItems.removeAll(online);
+            }
         }
         if (stats != null) {
             stats.save();
@@ -82,6 +95,13 @@ public final class JustVolleyballMC extends JavaPlugin {
     public void reloadAll() {
         reloadConfig();
         settings.reload(getConfig());
+        for (Player online : getServer().getOnlinePlayers()) {
+            if (settings.hotbarEnabled) {
+                menuItems.give(online);
+            } else {
+                menuItems.removeAll(online);
+            }
+        }
     }
 
     /** Supprime les armor stands de balle/replay oubliés (crash, reload). */
@@ -129,5 +149,9 @@ public final class JustVolleyballMC extends JavaPlugin {
 
     public NamespacedKey handKey() {
         return handKey;
+    }
+
+    public MenuItems menuItems() {
+        return menuItems;
     }
 }
