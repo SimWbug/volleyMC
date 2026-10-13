@@ -1,0 +1,162 @@
+# ============================================================
+#  JustVolleyballMC - configuration
+#  Commande : /jvb   (alias /justvolleyball)
+#  Les donnees (arenes, stats, cosmetiques) sont dans des fichiers
+#  separes : arenas.yml, stats.yml, players.yml
+# ============================================================
+
+arena_settings:
+  court_types: ["1v1", "2v2", "3v3", "4v4", "5v5", "6v6"]
+  net:
+    height_blocks: 3
+    collision_enabled: true
+  zones:
+    out_of_bounds_detection: true
+    auto_reset_ball_on_point: true
+  # Materiaux du terrain genere par la faux
+  court:
+    floor_team_a: RED_TERRACOTTA
+    floor_team_b: LIGHT_BLUE_TERRACOTTA
+    lines: WHITE_CONCRETE
+    net: WHITE_STAINED_GLASS_PANE
+    net_top: BLACK_STAINED_GLASS_PANE
+    posts: BIRCH_FENCE
+    ceiling_clear_height: 12   # hauteur de vide creusee au-dessus du terrain
+    clear_air: true
+
+ball_physics:
+  entity_type: ARMOR_STAND
+  # Tete utilisee pour la balle : voir cosmetics.ball_skins (champ "texture")
+  gravity: 0.04
+  drag: 0.98
+  bounce_elasticity: 0.6
+  hitbox_size: 0.8
+  radius: 0.25            # rayon de collision avec les blocs
+  max_speed: 2.5
+  armor_stand_small: false
+  render_offset_y: 1.72   # decalage entre le centre de la balle et l'armor stand (a ajuster selon la tete)
+
+gameplay_mechanics:
+  aiming_system:
+    type: RAYCAST_LOOK_DIRECTION
+    show_trajectory_particles: true
+    trajectory_particle_type: CRIT
+  player_movement:
+    manual_control_only: true
+    allow_dash_slide: true
+    dash_cooldown_seconds: 2.5
+    teammate_collisions: true
+  reach: 3.0               # portee de frappe (blocs), en plus de la moitie de hitbox_size
+  actions:
+    serve:
+      charge_power_hold_click: true
+      max_power: 1.5
+      charge_seconds: 1.5   # temps pour atteindre la charge maximale
+      base_speed: 0.35
+      power_speed_gain: 0.4
+      lift: 0.25
+      timeout_seconds: 15
+    pass_bump:
+      trigger: RIGHT_CLICK
+      upward_force: 0.8
+      forward_speed: 0.5
+    spike_smash:
+      trigger: LEFT_CLICK_IN_AIR
+      min_jump_height: 1.2
+      downward_force: 1.4
+      forward_speed: 1.0
+    block:
+      trigger: SHIFT_JUMP_NEAR_NET
+      reflection_multiplier: 0.9
+      window_ticks: 12
+      net_distance: 1.8
+  rules:
+    max_touches_per_side: 3
+    forbid_double_touch: true
+    reset_positions_each_rally: true
+    point_pause_ticks: 60
+
+game_modes:
+  ranked_match:
+    enabled: true
+    points_to_win: 25
+    win_by_margin: 2
+    countdown_seconds: 10
+  open_gym:
+    enabled: true
+    max_players_lobby: 24
+    free_play_courts: true
+    chat_radius: 30
+    countdown_seconds: 5
+
+cosmetics_and_customization:
+  ball_skins_enabled: true
+  player_trail_particles: true
+  replay_system:
+    save_last_point_replay: true
+    replay_duration_seconds: 5
+
+# ------------------------------------------------------------
+#  Skins de balle.
+#  "material" = bloc/objet utilise si "texture" est vide.
+#  "texture"  = valeur base64 d'une tete (ex: depuis minecraft-heads.com,
+#               champ "Value"). Colle ici la texture d'un ballon de volley
+#               pour avoir une vraie balle ronde.
+# ------------------------------------------------------------
+ball_skins:
+  classic:
+    name: "Classique"
+    material: SNOW_BLOCK
+    texture: ""
+  beach:
+    name: "Beach"
+    material: YELLOW_CONCRETE
+    texture: ""
+  fire:
+    name: "Flamme"
+    material: MAGMA_BLOCK
+    texture: ""
+  slime:
+    name: "Slime"
+    material: SLIME_BLOCK
+    texture: ""
+  pumpkin:
+    name: "Citrouille"
+    material: CARVED_PUMPKIN
+    texture: ""
+
+# Particules de traînee (id -> particule + icone du menu)
+# Particules supportees : CRIT FLAME END_ROD CLOUD HEART NOTE HAPPY_VILLAGER SOUL_FIRE_FLAME SNOWFLAKE FIREWORK
+trails:
+  crit:
+    name: "Étincelles"
+    particle: CRIT
+    icon: IRON_SWORD
+  flame:
+    name: "Flammes"
+    particle: FLAME
+    icon: BLAZE_POWDER
+  cloud:
+    name: "Nuage"
+    particle: CLOUD
+    icon: WHITE_WOOL
+  hearts:
+    name: "Coeurs"
+    particle: HEART
+    icon: RED_DYE
+  notes:
+    name: "Notes"
+    particle: NOTE
+    icon: NOTE_BLOCK
+  star:
+    name: "Étoiles"
+    particle: END_ROD
+    icon: END_ROD
+  soul:
+    name: "Âmes"
+    particle: SOUL_FIRE_FLAME
+    icon: SOUL_TORCH
+  snow:
+    name: "Neige"
+    particle: SNOWFLAKE
+    icon: SNOWBALL

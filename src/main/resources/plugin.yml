@@ -1,0 +1,21 @@
+name: JustVolleyballMC
+version: '${project.version}'
+main: fr.cleangang.justvolleyball.JustVolleyballMC
+api-version: '1.21'
+description: Volleyball en 1v1 a 6v6 avec physique de balle, classe, open gym et replays.
+authors: [CleanGang]
+commands:
+  jvb:
+    description: Commande principale de JustVolleyballMC
+    aliases: [justvolleyball]
+    usage: /<command> help
+permissions:
+  justvolleyball.play:
+    description: Rejoindre et jouer aux parties de volley
+    default: true
+  justvolleyball.cosmetics:
+    description: Utiliser les skins de balle et les traînées
+    default: true
+  justvolleyball.admin:
+    description: Outils d'administration (faux, création d'arènes, forcer un match)
+    default: op
